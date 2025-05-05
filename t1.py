@@ -1,91 +1,54 @@
-#print
-import pandas as pd
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.datasets import mnist
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler,LabelEncoder
-data=pd.read_csv(r'D:\BE\LP3 practicals\ML\Practical-1\uber.csv')
-data.dropna(inplace=True)
-print(data.head())
- 
-#print
-columns_names=data.columns
-print(columns_names)
-
-#print
-data.info()
-
-#print
-data.drop(columns=['Unnamed: 0','key'],inplace=True)
-data.isnull().sum()
-
-#print
-data.dropna(inplace=True)
-
-#print
-data['pickup_datetime']=pd.to_datetime(data['pickup_datetime'])
-data['hour']=data['pickup_datetime'].dt.hour
-data['day']=data['pickup_datetime'].dt.day
-data['month']=data['pickup_datetime'].dt.month
-data.drop(['pickup_datetime'],axis=1,inplace=True)
-
-#print
-scaler=StandardScaler()
-numerical_features=['fare_amount','pickup_longitude','pickup_latitude',
-                  'dropoff_longitude','dropoff_latitude','passenger_count']
-data[numerical_features]=scaler.fit_transform(data[numerical_features])
-
-x=data.drop('fare_amount',axis=1)
-y=data['fare_amount']
-x_train,x_test,y_train,y_test=train_test_split(x,y,test_size=0.2,random_state=42)
-
-
-#2.Identify Outliers
-
-import seaborn as sns
+from PIL import Image
 import matplotlib.pyplot as plt
-sns.boxplot(x=data['fare_amount'])
-plt.title("boxplot of fare amount")
-plt.show()
+from google.colab import files
 
+# Step 2: Load the MNIST dataset
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
 
-#3.Check Correlation
+# Step 3: Preprocess the dataset
+x_train = x_train.reshape(x_train.shape[0], 28, 28, 1).astype('float32')
+x_test = x_test.reshape(x_test.shape[0], 28, 28, 1).astype('float32')
+x_train /= 255.0
+x_test /= 255.0
+y_train = to_categorical(y_train, 10)
+y_test = to_categorical(y_test, 10)
 
-#print
-corr_matrix=data.corr()
-plt.figure(figsize=(10,8))
-sns.heatmap(corr_matrix,annot=True,cmap='coolwarm')
-plt.title('Correlation matrix')
-plt.show()
+# Step 4: Define the neural network architecture
+model = Sequential([
+    tf.keras.layers.Flatten(input_shape=(28, 28, 1)),
+    Dense(128, activation='relu'),
+    Dropout(0.2),
+    Dense(10, activation='softmax')
+])
 
+# Step 5: Compile the model
+model.compile(optimizer=Adam(),
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
 
-#4.Implement Linear Regression and Random Forest Regression Models
+# Step 6: Train the model
+history = model.fit(x_train, y_train, epochs=50, batch_size=128, validation_data=(x_test, y_test))
 
-#print
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestRegressor
+# Step 7: Upload an image (using Google Colab uploader)
+uploaded = files.upload()
 
-linear_model=LinearRegression()
-linear_model.fit(x_train,y_train)
-
-rf_model=RandomForestRegressor(n_estimators=100,random_state=42)
-rf_model.fit(x_train,y_train)
-from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
-y_pred_linear = linear_model.predict(x_test)
-r2_linear = r2_score(y_test, y_pred_linear)
-rmse_linear = np.sqrt(mean_squared_error(y_test, y_pred_linear))
-mae_linear = mean_absolute_error(y_test, y_pred_linear)
-
-# Random Forest Predictions
-y_pred_rf = rf_model.predict(x_test)
-
-
-#5.Evaluate the Models and Compare Their Respective Scores (R2, RMSE, MAE)
-
-r2_rf = r2_score(y_test, y_pred_rf)
-rmse_rf = np.sqrt(mean_squared_error(y_test, y_pred_rf))
-mae_rf = mean_absolute_error(y_test, y_pred_rf)
-
-# Display the scores
-print("Linear Regression: R2 =", r2_linear, "RMSE =", rmse_linear, "MAE =", mae_linear)
-print("Random Forest: R2 =", r2_rf, "RMSE =", rmse_rf, "MAE =", mae_rf)
-
+# Step 8: Load the uploaded image
+for fn in uploaded.keys():
+    img = Image.open(fn)
+    img = img.convert('L')  # Convert to grayscale
+    img = img.resize((28, 28))  # Resize to 28x28 pixels
+    img = np.array(img).astype('float32')  # Convert to numpy array
+    img = img.reshape(1, 28, 28, 1)  # Reshape for model input
+    img /= 255.0  # Normalize the image data
+    prediction = model.predict(img)
+    predicted_label = np.argmax(prediction)
+    print(f"Predicted class label: {predicted_label}")
+    plt.imshow(img.reshape(28, 28), cmap='gray')
+    plt.show()
